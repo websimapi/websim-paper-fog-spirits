@@ -21,6 +21,25 @@ export class Player {
         this.mesh.add(this.light);
 
         this.scene.add(this.mesh);
+
+        // Inventory System
+        this.inventory = {}; // { 'itemName': count }
+    }
+
+    addItem(itemName) {
+        if (!this.inventory[itemName]) this.inventory[itemName] = 0;
+        this.inventory[itemName]++;
+        console.log(`Picked up ${itemName}! Inventory:`, this.inventory);
+    }
+
+    hasItem(itemName) {
+        return this.inventory[itemName] && this.inventory[itemName] > 0;
+    }
+
+    removeItem(itemName) {
+        if (this.hasItem(itemName)) {
+            this.inventory[itemName]--;
+        }
     }
 
     update(dt, inputX, inputY) {

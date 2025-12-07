@@ -15,6 +15,9 @@ export class World {
         this.groundTex.wrapT = THREE.RepeatWrapping;
 
         this.treeTex = textureLoader.load('tree_paper.png');
+        this.grassTex = textureLoader.load('grass_tuft.png');
+        
+        this.interactables = []; // Objects that can be harvested
     }
 
     getChunkKey(x, z) {
@@ -43,6 +46,7 @@ export class World {
                 this.scene.remove(chunk.mesh);
                 if (chunk.decorations) this.scene.remove(chunk.decorations);
                 this.chunks.delete(key);
+                this.removeChunk(key); // Call cleanup
             }
         }
     }
@@ -73,9 +77,28 @@ export class World {
         mesh.receiveShadow = true;
         this.scene.add(mesh);
 
-        // Add Decorations (Trees)
+        // Add Decorations (Trees & Grass)
         const decorGroup = new THREE.Group();
         decorGroup.position.set(cx * this.chunkSize, 0, cz * this.chunkSize);
+
+        // Helper to add interactable
+        const addInteractable = (type, x, z) => {
+            const mat = new THREE.SpriteMaterial({ map: type === 'tree' ? this.treeTex : this.grassTex });
+            const sprite = new THREE.Sprite(mat);
+            const scale = type === 'tree' ? 3 : 1;
+            sprite.position.set(x, type === 'tree' ? 1.5 : 0.5, z);
+            sprite.scale.set(scale, scale, 1);
+            decorGroup.add(sprite);
+
+            // Store absolute position for collision detection
+            this.interactables.push({
+                type: type,
+                mesh: sprite,
+                absolutePos: new THREE.Vector3(x + cx * this.chunkSize, 0, z + cz * this.chunkSize),
+                harvested: false,
+                chunkKey: `${cx},${cz}`
+            });
+        };
 
         // Random trees based on noise
         for(let i=0; i<3; i++) {
@@ -86,16 +109,27 @@ export class World {
 
             // Only place trees on "higher" ground to form groves
             if (this.noise2D(worldX * 0.05, worldZ * 0.05) > 0.2) {
-                const treeMat = new THREE.SpriteMaterial({ map: this.treeTex });
-                const tree = new THREE.Sprite(treeMat);
-                tree.position.set(lx, 1.5, lz); // 1.5 is half height approx
-                tree.scale.set(3, 3, 1);
-                decorGroup.add(tree);
+                addInteractable('tree', lx, lz);
             }
+        }
+
+        // Random Grass
+        for(let i=0; i<5; i++) {
+            const lx = (Math.random() - 0.5) * this.chunkSize;
+            const lz = (Math.random() - 0.5) * this.chunkSize;
+            addInteractable('grass', lx, lz);
         }
 
         this.scene.add(decorGroup);
 
         this.chunks.set(`${cx},${cz}`, { mesh, decorations: decorGroup });
+    }
+
+    // Cleanup interactables when chunk is removed
+    // Note: In a real game we might want persistent state, but for this simpler version it's okay if they reset on chunk reload
+    removeChunk(key) {
+        const [cx, cz] = key.split(',').map(Number);
+        // Filter out interactables belonging to this chunk
+        this.interactables = this.interactables.filter(item => item.chunkKey !== key);
     }
 }

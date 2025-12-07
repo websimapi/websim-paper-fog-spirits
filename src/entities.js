@@ -11,12 +11,63 @@ export class EntityManager {
         this.animals = [];
         this.monsters = [];
         this.habitats = [];
+        this.droppedItems = []; // Visual items on ground
         
         const loader = new THREE.TextureLoader();
-        this.foxTex = loader.load('fox_spirit.png');
-        this.monsterTex = loader.load('shadow_monster.png');
-        this.shrineTex = loader.load('shrine_light.png');
+        
+        // Spirit Config
+        this.spiritTypes = [
+            { 
+                name: "Fox Spirit", 
+                tex: loader.load('fox_spirit.png'), 
+                shrineTex: loader.load('shrine_light.png'),
+                item: "Star Fruit",
+                itemTex: loader.load('item_starfruit.png'),
+                lightColor: 0xffffaa
+            },
+            { 
+                name: "Deer Spirit", 
+                tex: loader.load('deer-spirit-game-asset-cute.png'), 
+                shrineTex: loader.load('shrine_deer.png'),
+                item: "Moon Flower",
+                itemTex: loader.load('item_flower.png'),
+                lightColor: 0x55ff55
+            },
+            { 
+                name: "Puppy Spirit", 
+                tex: loader.load('a-cute-little-puppy.png'), 
+                shrineTex: loader.load('shrine_puppy.png'),
+                item: "Golden Bone",
+                itemTex: loader.load('item_bone.png'),
+                lightColor: 0xffaa55
+            },
+            { 
+                name: "Bunny Spirit", 
+                tex: loader.load('white-bunny-spirit-cute.png'), 
+                shrineTex: loader.load('shrine_bunny.png'),
+                item: "Crystal Carrot",
+                itemTex: loader.load('item_carrot.png'),
+                lightColor: 0xffaafe
+            },
+            { 
+                name: "Kitty Spirit", 
+                tex: loader.load('a-cute-little-kitty-game-asset.png'), 
+                shrineTex: loader.load('shrine_kitty.png'),
+                item: "Sky Fish",
+                itemTex: loader.load('item_fish.png'),
+                lightColor: 0x55aaff
+            },
+            { 
+                name: "Cat Spirit", 
+                tex: loader.load('a-cute-cat-spirit.png'), 
+                shrineTex: loader.load('shrine_cat.png'),
+                item: "Spirit Catnip",
+                itemTex: loader.load('item_catnip.png'),
+                lightColor: 0xaa55ff
+            }
+        ];
 
+        this.monsterTex = loader.load('shadow_monster.png');
         this.initSpawns();
     }
 
@@ -30,57 +81,59 @@ export class EntityManager {
         this.thankYouBuffer = await this.loadSound('thank_you.mp3');
         this.growlBuffer = await this.loadSound('monster_growl.mp3');
 
-        // Spawn Habitats far away
-        for (let i = 0; i < 3; i++) {
-            this.spawnHabitat();
-        }
+        // Spawn one of each Spirit and their Habitat
+        this.spiritTypes.forEach((type, index) => {
+            // Random angle for pair
+            const angle = (index / this.spiritTypes.length) * Math.PI * 2 + (Math.random() * 0.5);
+            
+            // Spawn Habitat Far away
+            const habDist = 60 + Math.random() * 40;
+            const hx = Math.cos(angle) * habDist;
+            const hz = Math.sin(angle) * habDist;
+            const habitat = this.spawnHabitat(type, hx, hz);
 
-        // Spawn Animals around
-        for (let i = 0; i < 5; i++) {
-            this.spawnAnimal();
-        }
+            // Spawn Animal somewhere closer but in that general direction
+            const animalDist = 20 + Math.random() * 30;
+            const ax = Math.cos(angle + 0.2) * animalDist;
+            const az = Math.sin(angle + 0.2) * animalDist;
+            this.spawnAnimal(type, ax, az, habitat);
+        });
 
         // Spawn Monsters
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 15; i++) {
             this.spawnMonster();
         }
     }
 
-    spawnHabitat() {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 30 + Math.random() * 50;
-        const x = Math.cos(angle) * dist;
-        const z = Math.sin(angle) * dist;
-
-        const mat = new THREE.SpriteMaterial({ map: this.shrineTex });
+    spawnHabitat(type, x, z) {
+        const mat = new THREE.SpriteMaterial({ map: type.shrineTex });
         const sprite = new THREE.Sprite(mat);
         sprite.position.set(x, 1.5, z);
-        sprite.scale.set(3, 3, 1);
+        sprite.scale.set(4, 4, 1);
         
         // Light
-        const light = new THREE.PointLight(0xffffaa, 2, 15);
+        const light = new THREE.PointLight(type.lightColor, 2, 20);
         sprite.add(light);
 
         this.scene.add(sprite);
-        this.habitats.push({ mesh: sprite, active: true });
+        const hab = { mesh: sprite, active: true, type: type };
+        this.habitats.push(hab);
+        return hab;
     }
 
-    spawnAnimal() {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 15 + Math.random() * 30;
-        const x = this.player.position.x + Math.cos(angle) * dist;
-        const z = this.player.position.z + Math.sin(angle) * dist;
-
-        const mat = new THREE.SpriteMaterial({ map: this.foxTex });
+    spawnAnimal(type, x, z, homeHabitat) {
+        const mat = new THREE.SpriteMaterial({ map: type.tex });
         const sprite = new THREE.Sprite(mat);
         sprite.position.set(x, 0.5, z);
-        sprite.scale.set(1, 1, 1);
+        sprite.scale.set(1.5, 1.5, 1);
 
         this.scene.add(sprite);
         this.animals.push({ 
             mesh: sprite, 
-            state: 'IDLE', // IDLE, FOLLOWING, HOME
-            id: Math.random()
+            state: 'IDLE', // IDLE, FOLLOWING, HOME, WAITING_FOR_ITEM, HAPPY
+            id: Math.random(),
+            type: type,
+            home: homeHabitat
         });
     }
 
@@ -108,9 +161,33 @@ export class EntityManager {
     }
 
     update(dt, time, gameState) {
+        // --- Resource Gathering ---
+        // Check collisions with world interactables
+        this.world.interactables.forEach(item => {
+            if (!item.harvested && item.absolutePos.distanceTo(this.player.position) < 2) {
+                // Harvest!
+                item.harvested = true;
+                item.mesh.scale.set(0,0,0); // Hide it
+                
+                // Drop Item Logic
+                // 40% chance to drop a random item needed by spirits
+                if (Math.random() < 0.6) {
+                    const randomSpirit = this.spiritTypes[Math.floor(Math.random() * this.spiritTypes.length)];
+                    const itemName = randomSpirit.item;
+                    
+                    this.player.addItem(itemName);
+                    this.showNotification(`Found ${itemName}!`);
+                    
+                    // Visual pop effect (simple scale bounce or particle could go here)
+                } else {
+                    this.showNotification("Nothing here...");
+                }
+            }
+        });
+
         // --- Animals ---
         this.animals.forEach(animal => {
-            if (animal.state === 'HOME') return;
+            if (animal.state === 'HAPPY') return;
 
             const distToPlayer = animal.mesh.position.distanceTo(this.player.position);
 
@@ -125,41 +202,39 @@ export class EntityManager {
                     gameState.escortTarget = animal;
                     this.playSound(this.thankYouBuffer);
                     
-                    // Show UI Message via event or direct DOM (kept simple here)
-                    const dialogue = document.getElementById('dialogue');
-                    const text = document.getElementById('dialogue-text');
-                    const buttons = document.getElementById('dialogue-buttons');
-                    
-                    dialogue.style.display = 'flex';
-                    dialogue.style.flexDirection = 'column';
-                    text.innerText = "Spirt: Thank you for finding me! Please take me to the light...";
-                    buttons.innerHTML = '';
-                    setTimeout(() => { dialogue.style.display = 'none'; }, 3000);
+                    this.showDialogue(`${animal.type.name}: Thank you! Please take me to my shrine... it looks like...`, 3000);
+                    // Ideally show the shrine icon here too, but text is fine for now
                 }
             } else if (animal.state === 'FOLLOWING') {
                 // Follow logic with smooth dampening
                 const target = this.player.position.clone();
-                target.x += Math.sin(time) * 1.5; // Orbit slightly
+                target.x += Math.sin(time) * 1.5; 
                 target.z += Math.cos(time) * 1.5;
                 
                 animal.mesh.position.lerp(target, dt * 2);
-                animal.mesh.position.y = 1 + Math.sin(time * 5) * 0.2; // Excited hopping
+                animal.mesh.position.y = 1 + Math.sin(time * 5) * 0.2;
 
-                // Check Habitats
-                let nearHabitat = false;
-                this.habitats.forEach(hab => {
-                    if (animal.mesh.position.distanceTo(hab.mesh.position) < 4) {
-                        nearHabitat = true;
-                        // Arrived!
-                        animal.state = 'HOME';
-                        gameState.isEscorting = false;
-                        gameState.escortTarget = null;
-                        this.playSound(this.thankYouBuffer); // Play happy sound again
-                        
-                        // Trigger Quest Dialogue
-                        this.triggerQuest(animal);
-                    }
-                });
+                // Check Specific Home
+                if (animal.mesh.position.distanceTo(animal.home.mesh.position) < 5) {
+                    // Arrived!
+                    animal.state = 'WAITING_FOR_ITEM';
+                    gameState.isEscorting = false;
+                    gameState.escortTarget = null;
+                    this.playSound(this.thankYouBuffer);
+                    
+                    this.triggerQuest(animal);
+                }
+            } else if (animal.state === 'WAITING_FOR_ITEM') {
+                // Stay at home
+                animal.mesh.position.lerp(animal.home.mesh.position.clone().add(new THREE.Vector3(0,-1,2)), dt);
+                
+                // If player comes back close
+                if (distToPlayer < 4) {
+                     // Check if player has item automatically or re-trigger dialogue
+                     if (this.player.hasItem(animal.type.item)) {
+                         this.triggerQuest(animal); // Will handle completion
+                     }
+                }
             }
         });
 
@@ -213,7 +288,7 @@ export class EntityManager {
 
         // Apply Light Effects
         if (playerDrained) {
-            this.player.drainLight(dt * 3.3); // ~3 seconds to die
+            this.player.drainLight(dt * 3.3); 
             if (Math.random() < 0.02) this.playSound(this.growlBuffer);
         } else {
             this.player.recoverLight(dt * 1.5);
@@ -222,11 +297,50 @@ export class EntityManager {
         // Game Over Check
         if (this.player.currentLight <= 0 && !gameState.gameOver) {
             gameState.gameOver = true;
-            const dialogue = document.getElementById('dialogue');
-            dialogue.style.display = 'flex';
-            document.getElementById('dialogue-text').innerText = "The shadows have consumed your light... Game Over.";
-            document.getElementById('dialogue-buttons').innerHTML = `<button onclick="location.reload()">Restart</button>`;
+            this.showDialogue("The shadows have consumed your light... Game Over.", 0, true);
         }
+    }
+
+    showDialogue(text, duration = 3000, restartBtn = false) {
+        const dialogue = document.getElementById('dialogue');
+        const dText = document.getElementById('dialogue-text');
+        const buttons = document.getElementById('dialogue-buttons');
+        
+        dialogue.style.display = 'flex';
+        dText.innerText = text;
+        buttons.innerHTML = '';
+
+        if (restartBtn) {
+            buttons.innerHTML = `<button onclick="location.reload()">Restart</button>`;
+        } else if (duration > 0) {
+            setTimeout(() => { dialogue.style.display = 'none'; }, duration);
+        }
+    }
+
+    showNotification(text) {
+        const notif = document.createElement('div');
+        notif.innerText = text;
+        notif.style.position = 'absolute';
+        notif.style.top = '50%';
+        notif.style.left = '50%';
+        notif.style.transform = 'translate(-50%, -100%)';
+        notif.style.color = '#fff';
+        notif.style.background = 'rgba(0,0,0,0.7)';
+        notif.style.padding = '10px 20px';
+        notif.style.borderRadius = '20px';
+        notif.style.pointerEvents = 'none';
+        notif.style.animation = 'floatUp 2s forwards';
+        
+        // Inject style for animation if not exists
+        if (!document.getElementById('anim-style')) {
+            const style = document.createElement('style');
+            style.id = 'anim-style';
+            style.innerHTML = `@keyframes floatUp { 0% { opacity: 1; transform: translate(-50%, -100%); } 100% { opacity: 0; transform: translate(-50%, -300%); } }`;
+            document.head.appendChild(style);
+        }
+
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 2000);
     }
 
     triggerQuest(animal) {
@@ -235,24 +349,34 @@ export class EntityManager {
         const buttons = document.getElementById('dialogue-buttons');
 
         dialogue.style.display = 'flex';
-        text.innerText = "I am safe now! But I am hungry... Will you fetch me a Star Fruit from the forest?";
         
-        buttons.innerHTML = `
-            <button id="btn-yes">Yes, I will help!</button>
-            <button id="btn-no">No, stay safe here.</button>
-        `;
+        if (this.player.hasItem(animal.type.item)) {
+             // Complete Quest
+             text.innerText = `${animal.type.name}: You found a ${animal.type.item}! This is exactly what I needed!`;
+             buttons.innerHTML = `<button id="btn-give">Give ${animal.type.item}</button>`;
+             
+             document.getElementById('btn-give').onclick = () => {
+                 this.player.removeItem(animal.type.item);
+                 animal.state = 'HAPPY';
+                 text.innerText = "Thank you so much! I am happy now.";
+                 buttons.innerHTML = "";
+                 
+                 // Effect
+                 const happyParticles = new THREE.PointLight(animal.type.lightColor, 2, 10);
+                 animal.mesh.add(happyParticles);
+                 
+                 setTimeout(() => { dialogue.style.display = 'none'; }, 2000);
+             };
 
-        document.getElementById('btn-yes').onclick = () => {
-            text.innerText = "Thank you! I will wait here.";
-            buttons.innerHTML = "";
-            setTimeout(() => { dialogue.style.display = 'none'; }, 2000);
-            // In a full game, this would add a quest state
-        };
-        
-        document.getElementById('btn-no').onclick = () => {
-            text.innerText = "Okay... thank you for saving me anyway.";
-            buttons.innerHTML = "";
-            setTimeout(() => { dialogue.style.display = 'none'; }, 2000);
-        };
+        } else {
+            // Quest Start
+            text.innerText = `I am safe... but I am hungry. Can you find me a ${animal.type.item} in the woods?`;
+            buttons.innerHTML = `
+                <button id="btn-ok">I will find it!</button>
+            `;
+            document.getElementById('btn-ok').onclick = () => {
+                dialogue.style.display = 'none';
+            };
+        }
     }
 }
