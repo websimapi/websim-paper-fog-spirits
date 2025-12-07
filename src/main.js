@@ -36,7 +36,7 @@ const gameState = {
 // Modules
 const ui = new UIManager();
 const world = new World(scene);
-const player = new Player(scene, camera);
+const player = new Player(scene, camera, world);
 const entities = new EntityManager(scene, player, world, audioCtx, masterGain);
 
 // Input (Joystick)

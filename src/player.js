@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
 export class Player {
-    constructor(scene, camera) {
+    constructor(scene, camera, world) {
         this.scene = scene;
+        this.world = world;
         this.position = new THREE.Vector3(0, 0, 0);
         this.speed = 5;
 
@@ -50,20 +51,29 @@ export class Player {
             this.position.add(moveDir.multiplyScalar(this.speed * dt));
             
             // Flip sprite based on direction
-            if (inputX < 0) this.mesh.material.rotation = 0; // standard
-            // Sprites always face camera, to flip "horizontally" we can invert scale X
             if (inputX < 0) this.mesh.scale.x = -1.5;
             if (inputX > 0) this.mesh.scale.x = 1.5;
         }
 
-        // Update mesh position (Basic terrain following via raycast or assumption)
-        // For simplicity, we assume terrain is roughly y=0 to y=1.5. 
-        // In a real physics setup we'd raycast down.
+        // Terrain Height & Smoothing
+        const targetY = this.world.getTerrainHeight(this.position.x, this.position.z);
+        this.position.y = THREE.MathUtils.lerp(this.position.y, targetY, dt * 10);
+
+        // Calculate Slope for rotation (Visual only)
+        // Sample terrain height slightly to the right to determine slope
+        const rightY = this.world.getTerrainHeight(this.position.x + 0.5, this.position.z);
+        const slope = (rightY - targetY) * 2; 
+        
+        // Tilt sprite to match slope (Inverse rotation to align with uphill/downhill)
+        const targetRotation = -THREE.MathUtils.clamp(slope, -0.8, 0.8); 
+        this.mesh.material.rotation = THREE.MathUtils.lerp(this.mesh.material.rotation, targetRotation, dt * 10);
+
+        // Update mesh position
         this.mesh.position.x = this.position.x;
         this.mesh.position.z = this.position.z;
         
-        // Bobbing animation
-        this.mesh.position.y = 0.75 + Math.sin(Date.now() * 0.01) * 0.05;
+        // Bobbing animation relative to terrain
+        this.mesh.position.y = this.position.y + 0.75 + Math.sin(Date.now() * 0.01) * 0.05;
 
         // Update Light Visuals
         const intensityRatio = this.currentLight / this.maxLight;

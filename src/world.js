@@ -24,6 +24,10 @@ export class World {
         return `${Math.floor(x / this.chunkSize)},${Math.floor(z / this.chunkSize)}`;
     }
 
+    getTerrainHeight(x, z) {
+        return this.noise2D(x * 0.1, z * 0.1) * 1.5;
+    }
+
     update(playerPosition) {
         const px = Math.floor(playerPosition.x / this.chunkSize);
         const pz = Math.floor(playerPosition.z / this.chunkSize);
@@ -61,7 +65,7 @@ export class World {
             const x = posAttribute.getX(i) + cx * this.chunkSize;
             const z = posAttribute.getZ(i) + cz * this.chunkSize;
             // Gentle rolling hills
-            const y = this.noise2D(x * 0.1, z * 0.1) * 1.5; 
+            const y = this.getTerrainHeight(x, z); 
             posAttribute.setY(i, y);
         }
         geometry.computeVertexNormals();
