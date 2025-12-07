@@ -68,10 +68,6 @@ window.addEventListener('keyup', (e) => keys[e.code] = false);
 const ambientLight = new THREE.AmbientLight(0x404050, 0.8); // Dim blueish ambient
 scene.add(ambientLight);
 
-// Player Torch
-const playerLight = new THREE.PointLight(0xffaa55, 1, 8);
-player.mesh.add(playerLight);
-
 // Game Loop
 const clock = new THREE.Clock();
 
@@ -90,10 +86,12 @@ function animate() {
     if (keys['KeyD']) inputX = 1;
 
     // Logic Updates
-    player.update(dt, inputX, inputY);
-    world.update(player.position);
-    entities.update(dt, time, gameState);
-    ui.update(gameState);
+    if (!gameState.gameOver) {
+        player.update(dt, inputX, inputY);
+        world.update(player.position);
+        entities.update(dt, time, gameState);
+        ui.update(gameState, player);
+    }
 
     // Camera Follow
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, player.position.x, 0.1);

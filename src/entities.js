@@ -164,6 +164,8 @@ export class EntityManager {
         });
 
         // --- Monsters ---
+        let playerDrained = false;
+
         this.monsters.forEach(monster => {
             const distToPlayer = monster.mesh.position.distanceTo(this.player.position);
             
@@ -173,26 +175,31 @@ export class EntityManager {
                 monster.mesh.position.z = this.player.position.z + (Math.random()-0.5)*80;
             }
 
-            // Light Check
-            let inLight = false;
-            // Check player light
-            if (distToPlayer < 8) inLight = true;
+            // Light Check - Only flee from Shrines now
+            let inShrineLight = false;
             // Check habitats
             this.habitats.forEach(hab => {
-                if (monster.mesh.position.distanceTo(hab.mesh.position) < 15) inLight = true;
+                if (monster.mesh.position.distanceTo(hab.mesh.position) < 15) inShrineLight = true;
             });
 
-            if (inLight) {
-                // Flee
+            if (inShrineLight) {
+                // Flee from Shrine area
                 const fleeDir = monster.mesh.position.clone().sub(this.player.position).normalize();
                 monster.mesh.position.add(fleeDir.multiplyScalar(dt * 6));
                 monster.mesh.material.opacity = 0.3; // Fade in light
             } else {
-                // Chase if close enough
+                // Aggressive behavior
                 monster.mesh.material.opacity = 0.9;
+                
                 if (distToPlayer < 25) {
+                    // Chase
                     const chaseDir = this.player.position.clone().sub(monster.mesh.position).normalize();
-                    monster.mesh.position.add(chaseDir.multiplyScalar(dt * 3.5));
+                    monster.mesh.position.add(chaseDir.multiplyScalar(dt * 4));
+                    
+                    // Drain Logic
+                    if (distToPlayer < 2.5) {
+                        playerDrained = true;
+                    }
                 } else {
                     // Wander
                     monster.mesh.position.x += Math.sin(time + monster.mesh.id) * 0.05;
@@ -203,6 +210,23 @@ export class EntityManager {
             // Jitter effect
             monster.mesh.scale.set(2 + Math.random()*0.2, 2 + Math.random()*0.2, 1);
         });
+
+        // Apply Light Effects
+        if (playerDrained) {
+            this.player.drainLight(dt * 3.3); // ~3 seconds to die
+            if (Math.random() < 0.02) this.playSound(this.growlBuffer);
+        } else {
+            this.player.recoverLight(dt * 1.5);
+        }
+
+        // Game Over Check
+        if (this.player.currentLight <= 0 && !gameState.gameOver) {
+            gameState.gameOver = true;
+            const dialogue = document.getElementById('dialogue');
+            dialogue.style.display = 'flex';
+            document.getElementById('dialogue-text').innerText = "The shadows have consumed your light... Game Over.";
+            document.getElementById('dialogue-buttons').innerHTML = `<button onclick="location.reload()">Restart</button>`;
+        }
     }
 
     triggerQuest(animal) {

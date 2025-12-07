@@ -13,6 +13,13 @@ export class Player {
         this.mesh.scale.set(1.5, 1.5, 1);
         this.mesh.position.y = 0.75;
         
+        // Player Torch
+        this.maxLight = 10;
+        this.currentLight = 10;
+        this.light = new THREE.PointLight(0xffaa55, 1, 10);
+        this.light.decay = 2;
+        this.mesh.add(this.light);
+
         this.scene.add(this.mesh);
     }
 
@@ -37,5 +44,18 @@ export class Player {
         
         // Bobbing animation
         this.mesh.position.y = 0.75 + Math.sin(Date.now() * 0.01) * 0.05;
+
+        // Update Light Visuals
+        const intensityRatio = this.currentLight / this.maxLight;
+        this.light.intensity = intensityRatio * 1.5;
+        this.light.distance = 2 + intensityRatio * 12;
+    }
+
+    drainLight(amount) {
+        this.currentLight = Math.max(0, this.currentLight - amount);
+    }
+
+    recoverLight(amount) {
+        this.currentLight = Math.min(this.maxLight, this.currentLight + amount);
     }
 }
