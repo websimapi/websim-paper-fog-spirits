@@ -45,7 +45,8 @@ export class Player {
     update(dt, inputX, inputY) {
         // Move
         if (inputX !== 0 || inputY !== 0) {
-            const moveDir = new THREE.Vector3(inputX, 0, inputY).normalize();
+            // Invert Z so "forward" input moves forward in world space
+            const moveDir = new THREE.Vector3(inputX, 0, -inputY).normalize();
             this.position.add(moveDir.multiplyScalar(this.speed * dt));
             
             // Flip sprite based on direction
