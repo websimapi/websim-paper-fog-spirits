@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Paper Fog Spirits</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: 'Courier New', Courier, monospace; }
+        #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; box-sizing: border-box; }
+        .dialogue-box { 
+            background: rgba(255, 250, 240, 0.9); 
+            border: 4px solid #4a3c31; 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            border-radius: 10px; 
+            color: #2c241d;
+            font-weight: bold;
+            pointer-events: auto;
+            display: none;
+            max-width: 600px;
+            align-self: center;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .buttons { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
+        button {
+            background: #4a3c31; color: #fff; border: none; padding: 10px 20px; font-family: inherit; font-size: 16px; cursor: pointer; border-radius: 5px;
+        }
+        button:active { transform: scale(0.95); }
+        #joystick-zone { position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; pointer-events: auto; }
+        /* Mobile layout tweaks */
+        @media (max-width: 600px) {
+            #joystick-zone { bottom: 30px; left: 30px; }
+            .dialogue-box { width: 90%; font-size: 14px; margin-bottom: 80px; }
+        }
+        #quest-indicator {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.5); color: white; padding: 5px 15px; border-radius: 20px; display: none;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://esm.sh/three@0.160.0",
+            "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+            "simplex-noise": "https://esm.sh/simplex-noise@4.0.1",
+            "nipplejs": "https://esm.sh/nipplejs@0.10.1"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="game-container"></div>
+    <div id="ui-layer">
+        <div id="quest-indicator">Escort the Spirit to the Light!</div>
+        <div id="dialogue" class="dialogue-box">
+            <p id="dialogue-text">Hello...</p>
+            <div id="dialogue-buttons" class="buttons"></div>
+        </div>
+        <div id="joystick-zone"></div>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
+
